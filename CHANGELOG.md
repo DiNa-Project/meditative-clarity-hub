@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026.02.13+2
+
+- Update app display name to BSR.
+- Add launcher icons for iOS and Android.
+- Add Android network permissions for API sync.
+
 ## 2026.02.08+1
 
 - Initial release.
