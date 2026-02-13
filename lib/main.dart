@@ -645,34 +645,34 @@ class _QuestionnairePageState extends State<QuestionnairePage> {
 
   final List<QuestionItem> _questions = const [
     QuestionItem(
-      title: 'Return to present-moment experience.',
+      title: 'During practice, I attempted to return to my present-moment experience, whether unpleasant, pleasant, or neutral.',
       info:
-          'During practice, I attempted to return to my present-moment experience, whether unpleasant, pleasant, or neutral.',
+          'I kept bringing my attention back to what I was experiencing right now.',
     ),
     QuestionItem(
-      title: 'Accepting experiences as OK.',
+      title: 'During practice, I attempted to return to each experience, no matter how unpleasant, with a sense that “It’s OK to experience this”.',
       info:
-          'During practice, I attempted to return to each experience, no matter how unpleasant, with a sense that “It’s OK to experience this”.',
+          '⁠I tried to allow whatever was happening, and remind myself it’s okay.',
     ),
     QuestionItem(
-      title: 'Noticing bare sensations.',
+      title: 'During practice, I attempted to feel each experience as bare sensations in the body (tension in throat, movement in belly, etc).',
       info:
-          'During practice, I attempted to feel each experience as bare sensations in the body (tension in throat, movement in belly, etc).',
+          '⁠I noticed the feelings in my body (like tightness, warmth, or movement) without overthinking them.',
     ),
     QuestionItem(
-      title: 'Struggling against experiences.',
+      title: 'During practice, I was struggling against having certain experiences (e.g., unpleasant thoughts, emotions, and/or bodily sensations).',
       info:
-          'During practice, I was struggling against having certain experiences (e.g., unpleasant thoughts, emotions, and/or bodily sensations).',
+          'I was resisting or fighting against certain experiences.',
     ),
     QuestionItem(
-      title: 'Avoiding or pushing away.',
+      title: 'During practice, I was actively avoiding or “pushing away” certain experiences.',
       info:
-          'During practice, I was actively avoiding or “pushing away” certain experiences.',
+          'I tried to push away or avoid certain thoughts, feelings, or sensations.',
     ),
     QuestionItem(
-      title: 'Trying to fix or change.',
+      title: 'During practice I was actively trying to fix or change certain experiences, in order to get to a “better place”.',
       info:
-          'During practice I was actively trying to fix or change certain experiences, in order to get to a “better place”.',
+          '⁠I was trying to change how I felt to feel better, instead of just noticing it.',
     ),
   ];
 
