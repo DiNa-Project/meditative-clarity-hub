@@ -611,7 +611,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   shape: const CircleBorder(),
                   padding: EdgeInsets.zero,
                 ),
-                onPressed: _startPractice,
+                onPressed: _isMeditating ? null : _startPractice,
                 child: const Icon(Icons.play_arrow),
               ),
             ),
