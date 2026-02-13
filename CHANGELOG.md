@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.02.13+3
+
+- Disable practice button during active meditation.
+
 ## 2026.02.13+2
 
 - Update app display name to BSR.
