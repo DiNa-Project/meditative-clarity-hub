@@ -734,7 +734,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       child: Text(
                         _isMeditating
                             ? 'Meditating'
-                            : (_hasCompletedMeditation ? 'Locked' : 'Meditate'),
+                            : (_hasCompletedMeditation ? 'Done!' : 'Meditate'),
                         textAlign: TextAlign.center,
                       ),
                     ),
