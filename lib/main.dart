@@ -679,8 +679,9 @@ class _MyHomePageState extends State<MyHomePage> {
     if (remaining.isNegative) {
       return '';
     }
-    final seconds = remaining.inSeconds;
-    return '${seconds}s';
+    final minutes = remaining.inMinutes;
+    final seconds = remaining.inSeconds % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
   Future<void> _toggleMeditation() async {
