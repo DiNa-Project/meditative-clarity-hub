@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026.02.19+4
+
+- Implement 1-hour meditation cooldown (replaces once-per-day limit).
+- Add live countdown timer showing remaining time until next meditation.
+- Auto-unlock meditation button when cooldown expires.
+- Upgrade to timestamp-based tracking for precise cooldown management.
+- Maintain offline-first sync pattern for data reliability.
+
 ## 2026.02.13+3
 
 - Disable practice button during active meditation.
