@@ -43,7 +43,10 @@ class UserProfileStore {
     final prefs = await SharedPreferences.getInstance();
     final name = prefs.getString(_nameKey);
     final startDate = prefs.getString(_startDateKey);
-    if (name == null || name.isEmpty || startDate == null || startDate.isEmpty) {
+    if (name == null ||
+        name.isEmpty ||
+        startDate == null ||
+        startDate.isEmpty) {
       return null;
     }
     return UserProfile(name: name, startDate: startDate);
@@ -64,16 +67,24 @@ class UserProfile {
 }
 
 class DailyProgressStore {
-  static const _lastCompletedDateKey = 'last_completed_date';
+  static const _lastCompletedDateKey = 'last_completed_timestamp';
 
-  static Future<String?> getLastCompletedDate() async {
+  static Future<DateTime?> getLastCompletedTimestamp() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_lastCompletedDateKey);
+    final timestamp = prefs.getString(_lastCompletedDateKey);
+    if (timestamp == null || timestamp.isEmpty) {
+      return null;
+    }
+    try {
+      return DateTime.parse(timestamp);
+    } catch (_) {
+      return null;
+    }
   }
 
-  static Future<void> setLastCompletedDate(DateTime date) async {
+  static Future<void> setLastCompletedTimestamp(DateTime dateTime) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_lastCompletedDateKey, formatDate(date));
+    await prefs.setString(_lastCompletedDateKey, dateTime.toIso8601String());
   }
 
   static String formatDate(DateTime date) {
@@ -89,22 +100,32 @@ class NotificationService {
   static const _meditationHour = 20;
   static const _labHour = 10;
 
-  static final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
+  static final FlutterLocalNotificationsPlugin _plugin =
+      FlutterLocalNotificationsPlugin();
 
   static Future<void> initialize() async {
     tz.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation('Pacific/Auckland'));
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
     const iosSettings = DarwinInitializationSettings();
-    const settings = InitializationSettings(android: androidSettings, iOS: iosSettings);
+    const settings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
     await _plugin.initialize(settings);
 
     await _plugin
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.requestNotificationsPermission();
     await _plugin
-        .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
+        .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin
+        >()
         ?.requestPermissions(alert: true, badge: true, sound: true);
   }
 
@@ -127,8 +148,17 @@ class NotificationService {
 
   static Future<void> _scheduleMeditationRange(DateTime startDate) async {
     for (var day = 0; day <= 9; day++) {
-      final date = DateTime(startDate.year, startDate.month, startDate.day).add(Duration(days: day));
-      final localTime = DateTime(date.year, date.month, date.day, _meditationHour);
+      final date = DateTime(
+        startDate.year,
+        startDate.month,
+        startDate.day,
+      ).add(Duration(days: day));
+      final localTime = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        _meditationHour,
+      );
       if (localTime.isBefore(DateTime.now())) {
         continue;
       }
@@ -147,13 +177,18 @@ class NotificationService {
           iOS: DarwinNotificationDetails(),
         ),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
       );
     }
   }
 
   static Future<void> _scheduleLabReminder(DateTime startDate) async {
-    final date = DateTime(startDate.year, startDate.month, startDate.day).add(const Duration(days: 10));
+    final date = DateTime(
+      startDate.year,
+      startDate.month,
+      startDate.day,
+    ).add(const Duration(days: 10));
     final localTime = DateTime(date.year, date.month, date.day, _labHour);
     if (localTime.isBefore(DateTime.now())) {
       return;
@@ -173,7 +208,8 @@ class NotificationService {
         iOS: DarwinNotificationDetails(),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
     );
   }
 }
@@ -243,7 +279,9 @@ class MeditationSession {
       userName: json['user_name'] as String,
       startDate: json['start_date'] as String,
       musicStartTime: json['music_start_time'] as String,
-      answers: (json['answers'] as List<dynamic>).map((value) => (value as num).toDouble()).toList(),
+      answers: (json['answers'] as List<dynamic>)
+          .map((value) => (value as num).toDouble())
+          .toList(),
       synced: json['synced'] as bool? ?? false,
     );
   }
@@ -260,12 +298,16 @@ class MeditationSessionStore {
     }
 
     final decoded = jsonDecode(raw) as List<dynamic>;
-    return decoded.map((item) => MeditationSession.fromJson(item as Map<String, dynamic>)).toList();
+    return decoded
+        .map((item) => MeditationSession.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
   static Future<void> saveAll(List<MeditationSession> sessions) async {
     final prefs = await SharedPreferences.getInstance();
-    final encoded = jsonEncode(sessions.map((session) => session.toJson()).toList());
+    final encoded = jsonEncode(
+      sessions.map((session) => session.toJson()).toList(),
+    );
     await prefs.setString(_prefsKey, encoded);
   }
 
@@ -281,7 +323,11 @@ class MeditationSessionStore {
     }
     final sessions = await loadAll();
     final updated = sessions
-        .map((session) => ids.contains(session.id) ? session.copyWith(synced: true) : session)
+        .map(
+          (session) => ids.contains(session.id)
+              ? session.copyWith(synced: true)
+              : session,
+        )
         .toList();
     await saveAll(updated);
   }
@@ -327,7 +373,8 @@ class MeditationSyncService {
       body: jsonEncode(payload),
     );
 
-    final successStatus = response.statusCode >= 200 && response.statusCode < 400;
+    final successStatus =
+        response.statusCode >= 200 && response.statusCode < 400;
     var successBody = false;
     if (!successStatus) {
       try {
@@ -339,7 +386,9 @@ class MeditationSyncService {
     }
 
     if (successStatus || successBody) {
-      await MeditationSessionStore.markSynced(inRange.map((session) => session.id).toSet());
+      await MeditationSessionStore.markSynced(
+        inRange.map((session) => session.id).toSet(),
+      );
     }
   }
 
@@ -429,7 +478,10 @@ class _AppBootstrapperState extends State<AppBootstrapper> {
         if (!_hasTriggeredSync) {
           _hasTriggeredSync = true;
           unawaited(
-            MeditationSyncService.syncPending(deviceId: widget.deviceId, profile: profile),
+            MeditationSyncService.syncPending(
+              deviceId: widget.deviceId,
+              profile: profile,
+            ),
           );
         }
 
@@ -478,7 +530,11 @@ class _MyHomePageState extends State<MyHomePage> {
   StreamSubscription<void>? _completionSubscription;
   StreamSubscription<void>? _previewCompletionSubscription;
   DateTime? _meditationStartTime;
+  DateTime? _nextAvailableTime;
+  Timer? _lockTimer;
+  Timer? _countdownTimer;
   static const bool _enableDailyLock = true;
+  static const Duration _cooldownDuration = Duration(hours: 1);
 
   @override
   void initState() {
@@ -502,7 +558,9 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       );
     });
-    _previewCompletionSubscription = _previewPlayer.onPlayerComplete.listen((_) {
+    _previewCompletionSubscription = _previewPlayer.onPlayerComplete.listen((
+      _,
+    ) {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => QuestionnairePage(
@@ -523,17 +581,82 @@ class _MyHomePageState extends State<MyHomePage> {
       }
       setState(() {
         _hasCompletedMeditation = false;
+        _nextAvailableTime = null;
       });
       return;
     }
-    final lastCompleted = await DailyProgressStore.getLastCompletedDate();
-    final today = DateTime.now();
-    final todayKey = DailyProgressStore.formatDate(today);
+
+    final lastCompleted = await DailyProgressStore.getLastCompletedTimestamp();
+    if (lastCompleted == null) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _hasCompletedMeditation = false;
+        _nextAvailableTime = null;
+      });
+      return;
+    }
+
+    final now = DateTime.now();
+    final nextAvailable = lastCompleted.add(_cooldownDuration);
+    final isLocked = now.isBefore(nextAvailable);
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _hasCompletedMeditation = isLocked;
+      _nextAvailableTime = isLocked ? nextAvailable : null;
+    });
+
+    if (isLocked) {
+      _startLockTimer(nextAvailable);
+      _startCountdownTimer();
+    }
+  }
+
+  void _startLockTimer(DateTime unlockTime) {
+    _lockTimer?.cancel();
+    final duration = unlockTime.difference(DateTime.now());
+    if (duration.isNegative) {
+      _unlockMeditation();
+      return;
+    }
+
+    _lockTimer = Timer(duration, () {
+      _unlockMeditation();
+    });
+  }
+
+  void _startCountdownTimer() {
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) {
+        return;
+      }
+      if (_nextAvailableTime == null) {
+        _countdownTimer?.cancel();
+        return;
+      }
+      final remaining = _nextAvailableTime!.difference(DateTime.now());
+      if (remaining.isNegative) {
+        _unlockMeditation();
+        _countdownTimer?.cancel();
+        return;
+      }
+      setState(() {}); // Update UI with new countdown
+    });
+  }
+
+  void _unlockMeditation() {
     if (!mounted) {
       return;
     }
     setState(() {
-      _hasCompletedMeditation = lastCompleted == todayKey;
+      _hasCompletedMeditation = false;
+      _nextAvailableTime = null;
     });
   }
 
@@ -541,9 +664,23 @@ class _MyHomePageState extends State<MyHomePage> {
   void dispose() {
     _completionSubscription?.cancel();
     _previewCompletionSubscription?.cancel();
+    _lockTimer?.cancel();
+    _countdownTimer?.cancel();
     _player.dispose();
     _previewPlayer.dispose();
     super.dispose();
+  }
+
+  String _getRemainingTime() {
+    if (_nextAvailableTime == null) {
+      return '';
+    }
+    final remaining = _nextAvailableTime!.difference(DateTime.now());
+    if (remaining.isNegative) {
+      return '';
+    }
+    final seconds = remaining.inSeconds;
+    return '${seconds}s';
   }
 
   Future<void> _toggleMeditation() async {
@@ -573,29 +710,48 @@ class _MyHomePageState extends State<MyHomePage> {
       body: Stack(
         children: [
           Center(
-            child: Opacity(
-              opacity: _isMeditating ? 0.6 : 1,
-              child: SizedBox(
-                width: 200,
-                height: 200,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    foregroundColor: Colors.white,
-                    shape: const CircleBorder(),
-                    textStyle: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w600,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Opacity(
+                  opacity: _isMeditating ? 0.6 : 1,
+                  child: SizedBox(
+                    width: 200,
+                    height: 200,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.black,
+                        foregroundColor: Colors.white,
+                        shape: const CircleBorder(),
+                        textStyle: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      onPressed: _hasCompletedMeditation
+                          ? null
+                          : _toggleMeditation,
+                      child: Text(
+                        _isMeditating
+                            ? 'Meditating'
+                            : (_hasCompletedMeditation ? 'Locked' : 'Meditate'),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   ),
-                  onPressed: _hasCompletedMeditation ? null : _toggleMeditation,
-                  child: Text(
-                    _isMeditating
-                        ? 'Meditating'
-                        : (_hasCompletedMeditation ? 'Done!' : 'Meditate'),
-                  ),
                 ),
-              ),
+                if (_hasCompletedMeditation && _nextAvailableTime != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: Text(
+                      'Available in ${_getRemainingTime()}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
           Positioned(
@@ -645,32 +801,37 @@ class _QuestionnairePageState extends State<QuestionnairePage> {
 
   final List<QuestionItem> _questions = const [
     QuestionItem(
-      title: 'During practice, I attempted to return to my present-moment experience, whether unpleasant, pleasant, or neutral.',
+      title:
+          'During practice, I attempted to return to my present-moment experience, whether unpleasant, pleasant, or neutral.',
       info:
           'I kept bringing my attention back to what I was experiencing right now.',
     ),
     QuestionItem(
-      title: 'During practice, I attempted to return to each experience, no matter how unpleasant, with a sense that “It’s OK to experience this”.',
+      title:
+          'During practice, I attempted to return to each experience, no matter how unpleasant, with a sense that “It’s OK to experience this”.',
       info:
           '⁠I tried to allow whatever was happening, and remind myself it’s okay.',
     ),
     QuestionItem(
-      title: 'During practice, I attempted to feel each experience as bare sensations in the body (tension in throat, movement in belly, etc).',
+      title:
+          'During practice, I attempted to feel each experience as bare sensations in the body (tension in throat, movement in belly, etc).',
       info:
           '⁠I noticed the feelings in my body (like tightness, warmth, or movement) without overthinking them.',
     ),
     QuestionItem(
-      title: 'During practice, I was struggling against having certain experiences (e.g., unpleasant thoughts, emotions, and/or bodily sensations).',
-      info:
-          'I was resisting or fighting against certain experiences.',
+      title:
+          'During practice, I was struggling against having certain experiences (e.g., unpleasant thoughts, emotions, and/or bodily sensations).',
+      info: 'I was resisting or fighting against certain experiences.',
     ),
     QuestionItem(
-      title: 'During practice, I was actively avoiding or “pushing away” certain experiences.',
+      title:
+          'During practice, I was actively avoiding or “pushing away” certain experiences.',
       info:
           'I tried to push away or avoid certain thoughts, feelings, or sensations.',
     ),
     QuestionItem(
-      title: 'During practice I was actively trying to fix or change certain experiences, in order to get to a “better place”.',
+      title:
+          'During practice I was actively trying to fix or change certain experiences, in order to get to a “better place”.',
       info:
           '⁠I was trying to change how I felt to feel better, instead of just noticing it.',
     ),
@@ -750,16 +911,19 @@ class _QuestionnairePageState extends State<QuestionnairePage> {
     );
 
     await MeditationSessionStore.add(session);
-    await DailyProgressStore.setLastCompletedDate(DateTime.now());
+    await DailyProgressStore.setLastCompletedTimestamp(DateTime.now());
 
     if (!mounted) {
       return;
     }
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const ThankYouPage()),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => const ThankYouPage()));
 
+    // Try to sync in background (fire and forget)
+    // If no internet or fails: stays synced:false
+    // AppBootstrapper will retry on next app launch
     unawaited(
       MeditationSyncService.syncPending(
         deviceId: widget.deviceId,
@@ -800,7 +964,10 @@ class _QuestionnairePageState extends State<QuestionnairePage> {
                     child: Text(
                       'Questionnaire',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 48),
@@ -853,7 +1020,9 @@ class _QuestionnairePageState extends State<QuestionnairePage> {
                               tickMarkShape: const RoundSliderTickMarkShape(),
                               activeTickMarkColor: Colors.black,
                               inactiveTickMarkColor: Colors.black26,
-                              overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
+                              overlayShape: const RoundSliderOverlayShape(
+                                overlayRadius: 18,
+                              ),
                             ),
                             child: Slider(
                               value: value,
@@ -861,7 +1030,8 @@ class _QuestionnairePageState extends State<QuestionnairePage> {
                               max: 100,
                               divisions: 10,
                               label: value.round().toString(),
-                              onChanged: (newValue) => _updateAnswer(questionIndex, newValue),
+                              onChanged: (newValue) =>
+                                  _updateAnswer(questionIndex, newValue),
                             ),
                           ),
                           Text(
@@ -898,7 +1068,9 @@ class _QuestionnairePageState extends State<QuestionnairePage> {
                   else
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: _canContinue(1) && !_submitting ? _finish : null,
+                        onPressed: _canContinue(1) && !_submitting
+                            ? _finish
+                            : null,
                         child: Text(_submitting ? 'Submitting...' : 'Submit'),
                       ),
                     ),
@@ -956,7 +1128,11 @@ class _ThankYouPageState extends State<ThankYouPage> {
 }
 
 class OnboardingPage extends StatefulWidget {
-  const OnboardingPage({super.key, required this.deviceId, required this.onCompleted});
+  const OnboardingPage({
+    super.key,
+    required this.deviceId,
+    required this.onCompleted,
+  });
 
   final String deviceId;
   final VoidCallback onCompleted;
@@ -1024,9 +1200,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Welcome'),
-      ),
+      appBar: AppBar(title: const Text('Welcome')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Form(
