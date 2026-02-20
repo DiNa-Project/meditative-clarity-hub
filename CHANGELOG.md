@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.02.19+5
+
+- Update live countdown timer in MM:SS format (e.g., "59:30").
+
 ## 2026.02.19+4
 
 - Implement 1-hour meditation cooldown (replaces once-per-day limit).
