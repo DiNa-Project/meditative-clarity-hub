@@ -932,6 +932,11 @@ class _QuestionnairePageState extends State<QuestionnairePage> {
     return true;
   }
 
+  bool _allAnswersComplete() {
+    // Check that all answers have been marked as changed
+    return _answers.every((answer) => answer.changed);
+  }
+
   void _updateAnswer(int index, double value) {
     print('DEBUG_SLIDER: index=$index, value=$value');
     setState(() {
@@ -964,6 +969,71 @@ class _QuestionnairePageState extends State<QuestionnairePage> {
       return;
     }
 
+    // Validate that all 6 answers have been adjusted
+    if (!_allAnswersComplete()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please answer all questions')),
+        );
+      }
+      return;
+    }
+
+    // Build answers array
+    final answers = _answers.map((answer) => (answer.value ?? 0)).toList();
+    
+    // Validation logging
+    print('=== QUESTIONNAIRE SUBMISSION ===');
+    print('Total questions: ${_answers.length}');
+    print('All answers captured: ${answers.length == 6 && answers.every((v) => v > 0)}');
+    for (int i = 0; i < answers.length; i++) {
+      print('q${i+1}: ${answers[i]} (changed: ${_answers[i].changed})');
+    }
+    print('=======================\n');
+    
+    // Show confirmation dialog with all answers
+    if (!mounted) return;
+    
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Review Your Answers'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (int i = 0; i < 6; i++)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('q${i+1}:'),
+                      Text('${answers[i].toInt()}'),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Edit'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Submit'),
+          ),
+        ],
+      ),
+    ) ?? false;
+
+    if (!confirmed) {
+      return;
+    }
+
     setState(() {
       _submitting = true;
     });
@@ -974,20 +1044,6 @@ class _QuestionnairePageState extends State<QuestionnairePage> {
       }
       Navigator.of(context).pop();
       return;
-    }
-
-    final answers = _answers.map((answer) => (answer.value ?? 0)).toList();
-    
-    // Debug logging
-    print('DEBUG: _finish() called');
-    print('DEBUG: _answers length: ${_answers.length}');
-    print('DEBUG: _answers changed flags: ${_answers.map((a) => a.changed).toList()}');
-    print('DEBUG: _answers values: ${_answers.map((a) => a.value).toList()}');
-    print('DEBUG: answers list (final): $answers');
-    if (answers.length >= 6) {
-      print('DEBUG: answer values - q1=${answers[0]}, q2=${answers[1]}, q3=${answers[2]}, q4=${answers[3]}, q5=${answers[4]}, q6=${answers[5]}');
-    } else {
-      print('WARNING: answers list has insufficient items! length=${answers.length}');
     }
     
     final session = MeditationSession(
