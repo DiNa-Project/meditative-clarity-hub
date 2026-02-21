@@ -258,6 +258,12 @@ class MeditationSession {
   }
 
   Map<String, dynamic> toPayload() {
+    // Defensive check: ensure we have enough answers
+    if (answers.length < 6) {
+      print('ERROR: toPayload() called with insufficient answers! length=${answers.length}');
+      throw StateError('Invalid answers count: expected 6, got ${answers.length}');
+    }
+    
     return {
       'uuid': deviceId,
       'username': userName,
@@ -363,8 +369,24 @@ class MeditationSyncService {
       return;
     }
 
+    List<Map<String, dynamic>> payloadData = [];
+    for (final session in inRange) {
+      try {
+        payloadData.add(session.toPayload());
+      } catch (e) {
+        print('ERROR: Failed to create payload for session ${session.id}: $e');
+        // Skip this session on error
+        continue;
+      }
+    }
+
+    if (payloadData.isEmpty) {
+      print('ERROR: No sessions could be converted to payload');
+      return;
+    }
+
     final payload = {
-      'data': inRange.map((session) => session.toPayload()).toList(),
+      'data': payloadData,
     };
 
     final response = await http.post(
@@ -911,6 +933,7 @@ class _QuestionnairePageState extends State<QuestionnairePage> {
   }
 
   void _updateAnswer(int index, double value) {
+    print('DEBUG_SLIDER: index=$index, value=$value');
     setState(() {
       _answers[index] = QuestionAnswer(value: value, changed: true);
     });
@@ -954,6 +977,19 @@ class _QuestionnairePageState extends State<QuestionnairePage> {
     }
 
     final answers = _answers.map((answer) => (answer.value ?? 0)).toList();
+    
+    // Debug logging
+    print('DEBUG: _finish() called');
+    print('DEBUG: _answers length: ${_answers.length}');
+    print('DEBUG: _answers changed flags: ${_answers.map((a) => a.changed).toList()}');
+    print('DEBUG: _answers values: ${_answers.map((a) => a.value).toList()}');
+    print('DEBUG: answers list (final): $answers');
+    if (answers.length >= 6) {
+      print('DEBUG: answer values - q1=${answers[0]}, q2=${answers[1]}, q3=${answers[2]}, q4=${answers[3]}, q5=${answers[4]}, q6=${answers[5]}');
+    } else {
+      print('WARNING: answers list has insufficient items! length=${answers.length}');
+    }
+    
     final session = MeditationSession(
       id: const Uuid().v4(),
       deviceId: widget.deviceId,
