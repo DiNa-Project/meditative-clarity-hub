@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026.02.21+6
+
+- **Fix:** Investigate and address missing q4-q6 questionnaire answers issue.
+- **Add:** Review dialog showing all 6 answers before final submission.
+- **Add:** Comprehensive console logging for debugging answer submissions.
+- **Add:** Slider interaction logging (DEBUG_SLIDER) for diagnosing page 2 issues.
+- **Add:** Enhanced error handling in sync service with detailed error messages.
+- **Add:** Widget state stability improvements (ValueKeys for sliders and pages).
+- **Add:** Answer completeness validation preventing incomplete submissions.
+- **Add:** Detailed debugging guides (DEBUGGING_Q4_Q6_ISSUE.md, Q4_Q6_FIXES_SUMMARY.md).
+
 ## 2026.02.19+5
 
 - Update live countdown timer in MM:SS format (e.g., "59:30").
