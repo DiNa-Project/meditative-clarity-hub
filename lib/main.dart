@@ -529,10 +529,12 @@ class _MyHomePageState extends State<MyHomePage> {
   bool _hasCompletedMeditation = false;
   StreamSubscription<void>? _completionSubscription;
   StreamSubscription<void>? _previewCompletionSubscription;
+  StreamSubscription<PlayerState>? _playerStateSubscription;
   DateTime? _meditationStartTime;
   DateTime? _nextAvailableTime;
   Timer? _lockTimer;
   Timer? _countdownTimer;
+  bool _hasNavigatedToQuestionnaire = false;
   static const bool _enableDailyLock = true;
   static const Duration _cooldownDuration = Duration(hours: 1);
 
@@ -543,35 +545,72 @@ class _MyHomePageState extends State<MyHomePage> {
     _previewPlayer = AudioPlayer();
     unawaited(_loadDailyCompletion());
     _completionSubscription = _player.onPlayerComplete.listen((_) {
+      if (!mounted || _hasNavigatedToQuestionnaire) {
+        return;
+      }
       setState(() {
         _isMeditating = false;
-        _hasCompletedMeditation = true;
       });
-
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => QuestionnairePage(
-            deviceId: widget.deviceId,
-            profile: widget.profile,
-            musicStartTime: _meditationStartTime ?? DateTime.now(),
-          ),
-        ),
+      _openQuestionnaire(
+        musicStartTime: _meditationStartTime ?? DateTime.now(),
+        replace: true,
       );
     });
+
+    _playerStateSubscription = _player.onPlayerStateChanged.listen((state) {
+      if (state != PlayerState.completed) {
+        return;
+      }
+      if (!mounted || _hasNavigatedToQuestionnaire) {
+        return;
+      }
+      setState(() {
+        _isMeditating = false;
+      });
+      _openQuestionnaire(
+        musicStartTime: _meditationStartTime ?? DateTime.now(),
+        replace: true,
+      );
+    });
+
     _previewCompletionSubscription = _previewPlayer.onPlayerComplete.listen((
       _,
     ) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => QuestionnairePage(
-            deviceId: widget.deviceId,
-            profile: widget.profile,
-            musicStartTime: DateTime.now(),
-            isPractice: true,
-          ),
-        ),
-      );
+      if (!mounted) {
+        return;
+      }
+      _openQuestionnaire(musicStartTime: DateTime.now(), isPractice: true);
     });
+  }
+
+  void _openQuestionnaire({
+    required DateTime musicStartTime,
+    bool isPractice = false,
+    bool replace = false,
+  }) {
+    if (!mounted) {
+      return;
+    }
+
+    if (!isPractice) {
+      _hasNavigatedToQuestionnaire = true;
+    }
+
+    final route = MaterialPageRoute(
+      builder: (_) => QuestionnairePage(
+        deviceId: widget.deviceId,
+        profile: widget.profile,
+        musicStartTime: musicStartTime,
+        isPractice: isPractice,
+      ),
+    );
+
+    if (replace) {
+      Navigator.of(context).pushReplacement(route);
+      return;
+    }
+
+    Navigator.of(context).push(route);
   }
 
   Future<void> _loadDailyCompletion() async {
@@ -664,6 +703,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void dispose() {
     _completionSubscription?.cancel();
     _previewCompletionSubscription?.cancel();
+    _playerStateSubscription?.cancel();
     _lockTimer?.cancel();
     _countdownTimer?.cancel();
     _player.dispose();
@@ -691,10 +731,23 @@ class _MyHomePageState extends State<MyHomePage> {
 
     setState(() {
       _isMeditating = true;
+      _hasNavigatedToQuestionnaire = false;
       _meditationStartTime = DateTime.now();
     });
 
-    await _player.play(AssetSource('meditation.mp3'));
+    try {
+      await _player.play(AssetSource('meditation.mp3'));
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isMeditating = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to play meditation audio.')),
+      );
+    }
   }
 
   Future<void> _startPractice() async {
