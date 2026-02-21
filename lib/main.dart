@@ -1134,6 +1134,7 @@ class _QuestionnairePageState extends State<QuestionnairePage> {
                   final start = page * 3;
                   final pageItems = _questions.sublist(start, start + 3);
                   return ListView.separated(
+                    key: ValueKey('page_$page'),
                     padding: const EdgeInsets.all(16),
                     itemBuilder: (context, index) {
                       final questionIndex = start + index;
@@ -1171,6 +1172,7 @@ class _QuestionnairePageState extends State<QuestionnairePage> {
                               ),
                             ),
                             child: Slider(
+                              key: ValueKey('slider_$questionIndex'),
                               value: value,
                               min: 0,
                               max: 100,
