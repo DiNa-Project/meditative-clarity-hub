@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 class ThankYouPage extends StatefulWidget {
   const ThankYouPage({super.key});
@@ -13,7 +12,10 @@ class _ThankYouPageState extends State<ThankYouPage> {
   void initState() {
     super.initState();
     Future<void>.delayed(const Duration(seconds: 2), () {
-      SystemNavigator.pop();
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).popUntil((route) => route.isFirst);
     });
   }
 

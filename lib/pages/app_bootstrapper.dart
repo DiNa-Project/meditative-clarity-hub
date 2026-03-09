@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 
 import '../models/user_profile.dart';
@@ -18,14 +19,69 @@ class AppBootstrapper extends StatefulWidget {
   State<AppBootstrapper> createState() => _AppBootstrapperState();
 }
 
-class _AppBootstrapperState extends State<AppBootstrapper> {
+class _AppBootstrapperState extends State<AppBootstrapper>
+    with WidgetsBindingObserver {
   Future<UserProfile?>? _profileFuture;
   bool _hasTriggeredSync = false;
+  bool _syncInProgress = false;
+  UserProfile? _currentProfile;
+  StreamSubscription<dynamic>? _connectivitySubscription;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _profileFuture = UserProfileStore.load();
+
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
+      result,
+    ) {
+      if (_hasInternet(result)) {
+        unawaited(_triggerSyncIfPossible());
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _connectivitySubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_triggerSyncIfPossible());
+    }
+  }
+
+  Future<void> _triggerSyncIfPossible() async {
+    final profile = _currentProfile;
+    if (profile == null || _syncInProgress) {
+      return;
+    }
+
+    _syncInProgress = true;
+    try {
+      await MeditationSyncService.syncPending(
+        deviceId: widget.deviceId,
+        profile: profile,
+        ignoreBackoff: true,
+      );
+    } finally {
+      _syncInProgress = false;
+    }
+  }
+
+  bool _hasInternet(dynamic connectivityResult) {
+    if (connectivityResult is ConnectivityResult) {
+      return connectivityResult != ConnectivityResult.none;
+    }
+    if (connectivityResult is List<ConnectivityResult>) {
+      return connectivityResult.any((value) => value != ConnectivityResult.none);
+    }
+    return false;
   }
 
   @override
@@ -51,14 +107,11 @@ class _AppBootstrapperState extends State<AppBootstrapper> {
           );
         }
 
+        _currentProfile = profile;
+
         if (!_hasTriggeredSync) {
           _hasTriggeredSync = true;
-          unawaited(
-            MeditationSyncService.syncPending(
-              deviceId: widget.deviceId,
-              profile: profile,
-            ),
-          );
+          unawaited(_triggerSyncIfPossible());
         }
 
         unawaited(NotificationService.ensureScheduled(profile.startDate));

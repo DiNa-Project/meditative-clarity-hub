@@ -54,7 +54,6 @@ class _MyHomePageState extends State<MyHomePage> {
       });
       _openQuestionnaire(
         musicStartTime: _meditationStartTime ?? DateTime.now(),
-        replace: true,
       );
     });
 
@@ -70,7 +69,6 @@ class _MyHomePageState extends State<MyHomePage> {
       });
       _openQuestionnaire(
         musicStartTime: _meditationStartTime ?? DateTime.now(),
-        replace: true,
       );
     });
 

@@ -8,19 +8,23 @@ import 'meditation_session_store.dart';
 
 class MeditationSyncService {
   static const _endpoint =
-      'https://script.google.com/macros/s/AKfycbyDvZk-2OKAzlcdf-dIPmW3yk1kORdgRDTIB2ble8AdV1ndG58Clyb-S1yg3-lTn3ZqQA/exec';
+      'https://script.google.com/macros/s/AKfycbxSAnc_OfBdT64hbIbRCLikn-fAmk-CF47QnG8xhsN_SJ05t5psjSx1AgxJvmCGnN_4/exec';
 
   static Future<void> syncPending({
     required String deviceId,
     required UserProfile profile,
+    bool ignoreBackoff = false,
   }) async {
     final connectivity = await Connectivity().checkConnectivity();
-    if (connectivity == ConnectivityResult.none) {
+    if (!_hasInternet(connectivity)) {
       return;
     }
 
-    final sessions = await MeditationSessionStore.loadAll();
-    final pending = sessions.where((session) => !session.synced).toList();
+    final pending = ignoreBackoff
+      ? (await MeditationSessionStore.loadAll())
+          .where((session) => !session.synced)
+          .toList()
+      : await MeditationSessionStore.loadPendingDue();
     if (pending.isEmpty) {
       return;
     }
@@ -37,14 +41,22 @@ class MeditationSyncService {
     }
 
     List<Map<String, dynamic>> payloadData = [];
+    final payloadFailedIds = <String>{};
     for (final session in inRange) {
       try {
         payloadData.add(session.toPayload());
       } catch (e) {
         print('ERROR: Failed to create payload for session ${session.id}: $e');
-        // Skip this session on error.
+        payloadFailedIds.add(session.id);
         continue;
       }
+    }
+
+    if (payloadFailedIds.isNotEmpty) {
+      await MeditationSessionStore.markSyncFailed(
+        payloadFailedIds,
+        error: 'payload-conversion-failed',
+      );
     }
 
     if (payloadData.isEmpty) {
@@ -63,34 +75,94 @@ class MeditationSyncService {
       );
     }
 
-    final response = await http.post(
-      Uri.parse(_endpoint),
-      headers: const {'Content-Type': 'application/json'},
-      body: jsonEncode(payload),
-    );
+    http.Response response;
+    try {
+      response = await _postJsonWithAppsScriptRedirectHandling(
+        uri: Uri.parse(_endpoint),
+        body: jsonEncode(payload),
+      );
+    } catch (e) {
+      await MeditationSessionStore.markSyncFailed(
+        inRange.map((session) => session.id).toSet(),
+        error: 'network-error: $e',
+      );
+      return;
+    }
 
     print('SYNC_DEBUG status=${response.statusCode} body=${response.body}');
 
     final successStatus =
         response.statusCode >= 200 && response.statusCode < 400;
-    var successBody = false;
-    if (!successStatus) {
-      try {
-        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-        successBody = decoded['status'] == 'success';
-      } catch (_) {
-        successBody = false;
-      }
+    Map<String, dynamic>? decodedBody;
+    try {
+      decodedBody = jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (_) {
+      decodedBody = null;
     }
 
-    if (successStatus || successBody) {
+    final successBody = decodedBody?['status'] == 'success';
+
+    if (successStatus && successBody) {
       await MeditationSessionStore.markSynced(
         inRange.map((session) => session.id).toSet(),
+      );
+    } else {
+      final bodyStatus = decodedBody?['status'];
+      await MeditationSessionStore.markSyncFailed(
+        inRange.map((session) => session.id).toSet(),
+        error: 'http-${response.statusCode}-status-${bodyStatus ?? 'invalid-body'}',
       );
     }
   }
 
+  static bool _hasInternet(dynamic connectivityResult) {
+    if (connectivityResult is ConnectivityResult) {
+      return connectivityResult != ConnectivityResult.none;
+    }
+    if (connectivityResult is List<ConnectivityResult>) {
+      return connectivityResult.any((value) => value != ConnectivityResult.none);
+    }
+    return false;
+  }
+
   static DateTime _dateOnly(DateTime dateTime) {
     return DateTime(dateTime.year, dateTime.month, dateTime.day);
+  }
+
+  static Future<http.Response> _postJsonWithAppsScriptRedirectHandling({
+    required Uri uri,
+    required String body,
+  }) async {
+    final response = await http.post(
+      uri,
+      headers: const {'Content-Type': 'application/json'},
+      body: body,
+    );
+
+    if (!_isRedirect(response.statusCode)) {
+      return response;
+    }
+
+    final location = response.headers['location'];
+    if (location == null || location.isEmpty) {
+      return response;
+    }
+
+    final redirectUri = uri.resolve(location);
+    print(
+      'SYNC_DEBUG redirect status=${response.statusCode} location=$redirectUri',
+    );
+
+    // Google Apps Script often returns 302 after successful POST.
+    // The redirect target returns the final JSON result via GET.
+    return http.get(redirectUri);
+  }
+
+  static bool _isRedirect(int statusCode) {
+    return statusCode == 301 ||
+        statusCode == 302 ||
+        statusCode == 303 ||
+        statusCode == 307 ||
+        statusCode == 308;
   }
 }

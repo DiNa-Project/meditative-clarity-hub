@@ -226,6 +226,7 @@ class _QuestionnairePageState extends State<QuestionnairePage> {
       MeditationSyncService.syncPending(
         deviceId: widget.deviceId,
         profile: widget.profile,
+        ignoreBackoff: true,
       ),
     );
   }

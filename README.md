@@ -39,11 +39,11 @@ flutter run
 
 ### iOS notes
 
-- Apps cannot close themselves; the “Thank you” screen remains visible.
+- After submission, the app returns to the main page (it does not close itself).
 
 ## Sync endpoint
 
-The current endpoint is set in [lib/main.dart](lib/main.dart). Update `MeditationSyncService._endpoint` to your server if needed.
+The current endpoint is set in [lib/services/meditation_sync_service.dart](lib/services/meditation_sync_service.dart). Update `MeditationSyncService._endpoint` to your server if needed.
 
 ## Google Apps Script payload
 
