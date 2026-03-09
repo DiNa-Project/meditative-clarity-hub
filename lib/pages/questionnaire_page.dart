@@ -194,46 +194,62 @@ class _QuestionnairePageState extends State<QuestionnairePage> {
       _submitting = true;
     });
 
-    if (widget.isPractice) {
+    try {
+      if (widget.isPractice) {
+        if (!mounted) {
+          return;
+        }
+        Navigator.of(context).pop();
+        return;
+      }
+
+      final session = MeditationSession(
+        id: const Uuid().v4(),
+        deviceId: widget.deviceId,
+        userName: widget.profile.name,
+        startDate: widget.profile.startDate,
+        musicStartTime: widget.musicStartTime.toIso8601String(),
+        answers: answers,
+        synced: false,
+      );
+
+      await MeditationSessionStore.add(session);
+      await DailyProgressStore.setLastCompletedTimestamp(DateTime.now());
+      await NotificationService.ensureMeditationReminderUntilTenSessions(
+        DateTime.parse(widget.profile.startDate),
+      );
+      await NotificationService.ensureLabReminderAfterTenSessions();
+
       if (!mounted) {
         return;
       }
-      Navigator.of(context).pop();
-      return;
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const ThankYouPage()),
+      );
+
+      // Try to sync in background (fire and forget).
+      unawaited(
+        MeditationSyncService.syncPending(
+          deviceId: widget.deviceId,
+          profile: widget.profile,
+          ignoreBackoff: true,
+        ),
+      );
+    } catch (e) {
+      print('ERROR: Questionnaire submission failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Submit failed. Please try again.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+        });
+      }
     }
-
-    final session = MeditationSession(
-      id: const Uuid().v4(),
-      deviceId: widget.deviceId,
-      userName: widget.profile.name,
-      startDate: widget.profile.startDate,
-      musicStartTime: widget.musicStartTime.toIso8601String(),
-      answers: answers,
-      synced: false,
-    );
-
-    await MeditationSessionStore.add(session);
-    await DailyProgressStore.setLastCompletedTimestamp(DateTime.now());
-    await NotificationService.ensureMeditationReminderUntilTenSessions(
-      DateTime.parse(widget.profile.startDate),
-    );
-    await NotificationService.ensureLabReminderAfterTenSessions();
-
-    if (!mounted) {
-      return;
-    }
-
-    Navigator.of(context)
-        .pushReplacement(MaterialPageRoute(builder: (_) => const ThankYouPage()));
-
-    // Try to sync in background (fire and forget).
-    unawaited(
-      MeditationSyncService.syncPending(
-        deviceId: widget.deviceId,
-        profile: widget.profile,
-        ignoreBackoff: true,
-      ),
-    );
   }
 
   @override

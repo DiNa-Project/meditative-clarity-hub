@@ -103,11 +103,21 @@ class _MyHomePageState extends State<MyHomePage> {
     );
 
     if (replace) {
-      Navigator.of(context).pushReplacement(route);
+      Navigator.of(context).pushReplacement(route).then((_) {
+        if (!mounted) {
+          return;
+        }
+        unawaited(_loadDailyCompletion());
+      });
       return;
     }
 
-    Navigator.of(context).push(route);
+    Navigator.of(context).push(route).then((_) {
+      if (!mounted) {
+        return;
+      }
+      unawaited(_loadDailyCompletion());
+    });
   }
 
   Future<void> _loadDailyCompletion() async {
