@@ -9,6 +9,7 @@ import '../models/user_profile.dart';
 import '../services/daily_progress_store.dart';
 import '../services/meditation_session_store.dart';
 import '../services/meditation_sync_service.dart';
+import '../services/notification_service.dart';
 import 'thank_you_page.dart';
 
 class QuestionnairePage extends StatefulWidget {
@@ -213,6 +214,10 @@ class _QuestionnairePageState extends State<QuestionnairePage> {
 
     await MeditationSessionStore.add(session);
     await DailyProgressStore.setLastCompletedTimestamp(DateTime.now());
+    await NotificationService.ensureMeditationReminderUntilTenSessions(
+      DateTime.parse(widget.profile.startDate),
+    );
+    await NotificationService.ensureLabReminderAfterTenSessions();
 
     if (!mounted) {
       return;

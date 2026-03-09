@@ -29,20 +29,11 @@ class MeditationSyncService {
       return;
     }
 
-    final start = _dateOnly(DateTime.parse(profile.startDate));
-    final end = start.add(const Duration(days: 9));
-    final inRange = pending.where((session) {
-      final sessionDate = _dateOnly(DateTime.parse(session.musicStartTime));
-      return !sessionDate.isBefore(start) && !sessionDate.isAfter(end);
-    }).toList();
-
-    if (inRange.isEmpty) {
-      return;
-    }
+    final sessionsToSync = pending;
 
     List<Map<String, dynamic>> payloadData = [];
     final payloadFailedIds = <String>{};
-    for (final session in inRange) {
+    for (final session in sessionsToSync) {
       try {
         payloadData.add(session.toPayload());
       } catch (e) {
@@ -83,7 +74,7 @@ class MeditationSyncService {
       );
     } catch (e) {
       await MeditationSessionStore.markSyncFailed(
-        inRange.map((session) => session.id).toSet(),
+        sessionsToSync.map((session) => session.id).toSet(),
         error: 'network-error: $e',
       );
       return;
@@ -104,12 +95,12 @@ class MeditationSyncService {
 
     if (successStatus && successBody) {
       await MeditationSessionStore.markSynced(
-        inRange.map((session) => session.id).toSet(),
+        sessionsToSync.map((session) => session.id).toSet(),
       );
     } else {
       final bodyStatus = decodedBody?['status'];
       await MeditationSessionStore.markSyncFailed(
-        inRange.map((session) => session.id).toSet(),
+        sessionsToSync.map((session) => session.id).toSet(),
         error: 'http-${response.statusCode}-status-${bodyStatus ?? 'invalid-body'}',
       );
     }
@@ -123,10 +114,6 @@ class MeditationSyncService {
       return connectivityResult.any((value) => value != ConnectivityResult.none);
     }
     return false;
-  }
-
-  static DateTime _dateOnly(DateTime dateTime) {
-    return DateTime(dateTime.year, dateTime.month, dateTime.day);
   }
 
   static Future<http.Response> _postJsonWithAppsScriptRedirectHandling({

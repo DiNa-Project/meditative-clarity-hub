@@ -115,6 +115,7 @@ class _AppBootstrapperState extends State<AppBootstrapper>
         }
 
         unawaited(NotificationService.ensureScheduled(profile.startDate));
+        unawaited(NotificationService.ensureLabReminderAfterTenSessions());
 
         return MyHomePage(
           title: '',

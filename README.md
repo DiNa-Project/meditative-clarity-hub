@@ -10,7 +10,7 @@ Meditation flow with onboarding, daily session, questionnaire, local storage, an
 - **Questionnaire**: 6 questions, two pages, info dialog for full wording.
 - **Local storage**: device UUID + user profile in `SharedPreferences`; session answers in local SQLite (`sqflite`) for robust queued sync.
 - **Sync**: unsent sessions are POSTed to a Google Apps Script endpoint and marked as synced after success.
-- **Notifications**: daily reminders for start date through start date + 9; lab reminder on start date + 10 (New Zealand time).
+- **Notifications**: daily meditation reminder at 8:00 PM NZ time until 10 meditation records are saved; lab reminder is scheduled for the next day after the 10th record.
 
 ## Data model (per session)
 
@@ -22,8 +22,8 @@ Meditation flow with onboarding, daily session, questionnaire, local storage, an
 
 ## Notifications
 
-- **Meditation reminders**: 8:00 PM NZ time, day 0–9 (start date inclusive).
-- **Lab reminder**: 10:00 AM NZ time, day 10.
+- **Meditation reminders**: 8:00 PM NZ time every day, automatically stopped after 10 recorded meditation sessions.
+- **Lab reminder**: 10:00 AM NZ time, scheduled the next day after the 10th recorded meditation session.
 
 ## Run
 

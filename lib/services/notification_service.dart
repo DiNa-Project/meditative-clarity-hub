@@ -3,8 +3,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
+import 'meditation_session_store.dart';
+
 class NotificationService {
   static const _scheduledStartKey = 'notifications_scheduled_for_start_date';
+  static const _labScheduledForTenSessionsKey =
+      'lab_reminder_scheduled_after_ten_sessions';
+  static const _meditationReminderId = 1000;
   static const _meditationHour = 20;
   static const _labHour = 10;
 
@@ -40,63 +45,101 @@ class NotificationService {
   static Future<void> ensureScheduled(String startDateIso) async {
     final prefs = await SharedPreferences.getInstance();
     final alreadyScheduledFor = prefs.getString(_scheduledStartKey);
-    if (alreadyScheduledFor == startDateIso) {
-      return;
-    }
-
-    if (alreadyScheduledFor != null && alreadyScheduledFor.isNotEmpty) {
-      await _plugin.cancelAll();
+    if (alreadyScheduledFor != null &&
+        alreadyScheduledFor.isNotEmpty &&
+        alreadyScheduledFor != startDateIso) {
+      // Reset reminders if study start date changed.
+      await _cancelMeditationReminders();
+      await _plugin.cancel(2000);
+      await prefs.remove(_labScheduledForTenSessionsKey);
     }
 
     final startDate = DateTime.parse(startDateIso);
-    await _scheduleMeditationRange(startDate);
-    await _scheduleLabReminder(startDate);
+    await ensureMeditationReminderUntilTenSessions(startDate);
     await prefs.setString(_scheduledStartKey, startDateIso);
   }
 
-  static Future<void> _scheduleMeditationRange(DateTime startDate) async {
-    for (var day = 0; day <= 9; day++) {
-      final date = DateTime(
-        startDate.year,
-        startDate.month,
-        startDate.day,
-      ).add(Duration(days: day));
-      final localTime = DateTime(
-        date.year,
-        date.month,
-        date.day,
-        _meditationHour,
-      );
-      if (localTime.isBefore(DateTime.now())) {
-        continue;
-      }
-      await _plugin.zonedSchedule(
-        1000 + day,
-        'Time to meditate',
-        'Take a few minutes for today\'s session.',
-        tz.TZDateTime.from(localTime, tz.local),
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'meditation_reminders',
-            'Meditation reminders',
-            importance: Importance.high,
-            priority: Priority.high,
-          ),
-          iOS: DarwinNotificationDetails(),
+  static Future<void> ensureMeditationReminderUntilTenSessions(
+    DateTime startDate,
+  ) async {
+    final sessions = await MeditationSessionStore.loadAll();
+    if (sessions.length >= 10) {
+      await _cancelMeditationReminders();
+      return;
+    }
+
+    await _cancelMeditationReminders();
+
+    final first = _nextMeditationReminderTime(startDate);
+    await _plugin.zonedSchedule(
+      _meditationReminderId,
+      'Time to meditate',
+      'Take a few minutes for today\'s session.',
+      tz.TZDateTime.from(first, tz.local),
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'meditation_reminders',
+          'Meditation reminders',
+          importance: Importance.high,
+          priority: Priority.high,
         ),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-      );
+        iOS: DarwinNotificationDetails(),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.time,
+    );
+  }
+
+  static Future<void> ensureLabReminderAfterTenSessions() async {
+    final sessions = await MeditationSessionStore.loadAll();
+    if (sessions.length < 10) {
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final alreadyScheduled =
+        prefs.getBool(_labScheduledForTenSessionsKey) ?? false;
+    if (alreadyScheduled) {
+      return;
+    }
+
+    await _scheduleLabReminderForTomorrow();
+    await prefs.setBool(_labScheduledForTenSessionsKey, true);
+  }
+
+  static DateTime _nextMeditationReminderTime(DateTime startDate) {
+    final now = DateTime.now();
+    final startLocal = DateTime(startDate.year, startDate.month, startDate.day);
+    final baseDate = startLocal.isAfter(now)
+        ? startLocal
+        : DateTime(now.year, now.month, now.day);
+
+    var reminderTime = DateTime(
+      baseDate.year,
+      baseDate.month,
+      baseDate.day,
+      _meditationHour,
+    );
+
+    if (!reminderTime.isAfter(now)) {
+      reminderTime = reminderTime.add(const Duration(days: 1));
+    }
+    return reminderTime;
+  }
+
+  static Future<void> _cancelMeditationReminders() async {
+    await _plugin.cancel(_meditationReminderId);
+    // Cleanup for previous implementation that used IDs 1000..1009.
+    for (var id = 1000; id <= 1009; id++) {
+      await _plugin.cancel(id);
     }
   }
 
-  static Future<void> _scheduleLabReminder(DateTime startDate) async {
-    final date = DateTime(
-      startDate.year,
-      startDate.month,
-      startDate.day,
-    ).add(const Duration(days: 10));
+  static Future<void> _scheduleLabReminderForTomorrow() async {
+    final tomorrow = DateTime.now().add(const Duration(days: 1));
+    final date = DateTime(tomorrow.year, tomorrow.month, tomorrow.day);
     final localTime = DateTime(date.year, date.month, date.day, _labHour);
     if (localTime.isBefore(DateTime.now())) {
       return;
