@@ -7,7 +7,9 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite/sqflite.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:uuid/uuid.dart';
@@ -263,19 +265,29 @@ class MeditationSession {
       print('ERROR: toPayload() called with insufficient answers! length=${answers.length}');
       throw StateError('Invalid answers count: expected 6, got ${answers.length}');
     }
-    
+
     return {
+      'session_id': id,
       'uuid': deviceId,
       'username': userName,
       'start_date': startDate,
       'time_start_meditation': musicStartTime,
-      'q1': answers[0],
-      'q2': answers[1],
-      'q3': answers[2],
-      'q4': answers[3],
-      'q5': answers[4],
-      'q6': answers[5],
+      'q1': _payloadAnswer(answers[0]),
+      'q2': _payloadAnswer(answers[1]),
+      'q3': _payloadAnswer(answers[2]),
+      'q4': _payloadAnswer(answers[3]),
+      'q5': _payloadAnswer(answers[4]),
+      'q6': _payloadAnswer(answers[5]),
+      'answers_csv': answers.take(6).map(_payloadAnswer).join(','),
+      'payload_version': '2026-03-01-v2',
     };
+  }
+
+  String _payloadAnswer(double value) {
+    if (!value.isFinite) {
+      return '0';
+    }
+    return value.round().toString();
   }
 
   static MeditationSession fromJson(Map<String, dynamic> json) {
@@ -294,48 +306,149 @@ class MeditationSession {
 }
 
 class MeditationSessionStore {
-  static const _prefsKey = 'meditation_sessions';
+  static const _legacyPrefsKey = 'meditation_sessions';
+  static const _migrationFlagKey = 'meditation_sessions_migrated_to_sqlite';
+  static const _dbName = 'meditative_clarity_hub.db';
+  static const _tableName = 'meditation_sessions';
 
-  static Future<List<MeditationSession>> loadAll() async {
+  static Future<Database>? _dbFuture;
+
+  static Future<Database> _db() {
+    return _dbFuture ??= _openDb();
+  }
+
+  static Future<Database> _openDb() async {
+    final databasesPath = await getDatabasesPath();
+    final dbPath = p.join(databasesPath, _dbName);
+    final db = await openDatabase(
+      dbPath,
+      version: 1,
+      onCreate: (database, version) async {
+        await database.execute('''
+          CREATE TABLE $_tableName (
+            id TEXT PRIMARY KEY,
+            device_id TEXT NOT NULL,
+            user_name TEXT NOT NULL,
+            start_date TEXT NOT NULL,
+            music_start_time TEXT NOT NULL,
+            answers_json TEXT NOT NULL,
+            synced INTEGER NOT NULL DEFAULT 0
+          )
+        ''');
+      },
+    );
+
+    await _migrateLegacyPrefsIfNeeded(db);
+    return db;
+  }
+
+  static Future<void> _migrateLegacyPrefsIfNeeded(Database db) async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_prefsKey);
-    if (raw == null || raw.isEmpty) {
-      return [];
+    final alreadyMigrated = prefs.getBool(_migrationFlagKey) ?? false;
+    if (alreadyMigrated) {
+      return;
     }
 
-    final decoded = jsonDecode(raw) as List<dynamic>;
-    return decoded
-        .map((item) => MeditationSession.fromJson(item as Map<String, dynamic>))
+    final raw = prefs.getString(_legacyPrefsKey);
+    if (raw == null || raw.isEmpty) {
+      await prefs.setBool(_migrationFlagKey, true);
+      return;
+    }
+
+    try {
+      final decoded = jsonDecode(raw) as List<dynamic>;
+      final sessions = decoded
+          .map(
+            (item) => MeditationSession.fromJson(item as Map<String, dynamic>),
+          )
+          .toList();
+
+      await db.transaction((txn) async {
+        for (final session in sessions) {
+          await txn.insert(
+            _tableName,
+            _toDbMap(session),
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+        }
+      });
+
+      await prefs.remove(_legacyPrefsKey);
+      await prefs.setBool(_migrationFlagKey, true);
+      print('MIGRATION_DEBUG migrated ${sessions.length} sessions to SQLite');
+    } catch (e) {
+      print('ERROR: Failed migrating legacy session store: $e');
+    }
+  }
+
+  static Map<String, dynamic> _toDbMap(MeditationSession session) {
+    return {
+      'id': session.id,
+      'device_id': session.deviceId,
+      'user_name': session.userName,
+      'start_date': session.startDate,
+      'music_start_time': session.musicStartTime,
+      'answers_json': jsonEncode(session.answers),
+      'synced': session.synced ? 1 : 0,
+    };
+  }
+
+  static MeditationSession _fromDbRow(Map<String, Object?> row) {
+    final answersRaw = row['answers_json'] as String;
+    final answers = (jsonDecode(answersRaw) as List<dynamic>)
+        .map((value) => (value as num).toDouble())
         .toList();
+
+    return MeditationSession(
+      id: row['id'] as String,
+      deviceId: row['device_id'] as String,
+      userName: row['user_name'] as String,
+      startDate: row['start_date'] as String,
+      musicStartTime: row['music_start_time'] as String,
+      answers: answers,
+      synced: (row['synced'] as int? ?? 0) == 1,
+    );
+  }
+
+  static Future<List<MeditationSession>> loadAll() async {
+    final db = await _db();
+    final rows = await db.query(_tableName, orderBy: 'music_start_time ASC');
+    return rows.map(_fromDbRow).toList();
   }
 
   static Future<void> saveAll(List<MeditationSession> sessions) async {
-    final prefs = await SharedPreferences.getInstance();
-    final encoded = jsonEncode(
-      sessions.map((session) => session.toJson()).toList(),
-    );
-    await prefs.setString(_prefsKey, encoded);
+    final db = await _db();
+    await db.transaction((txn) async {
+      await txn.delete(_tableName);
+      for (final session in sessions) {
+        await txn.insert(
+          _tableName,
+          _toDbMap(session),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
   }
 
   static Future<void> add(MeditationSession session) async {
-    final sessions = await loadAll();
-    sessions.add(session);
-    await saveAll(sessions);
+    final db = await _db();
+    await db.insert(
+      _tableName,
+      _toDbMap(session),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   static Future<void> markSynced(Set<String> ids) async {
     if (ids.isEmpty) {
       return;
     }
-    final sessions = await loadAll();
-    final updated = sessions
-        .map(
-          (session) => ids.contains(session.id)
-              ? session.copyWith(synced: true)
-              : session,
-        )
-        .toList();
-    await saveAll(updated);
+    final db = await _db();
+    final placeholders = List.filled(ids.length, '?').join(',');
+    await db.rawUpdate(
+      'UPDATE $_tableName SET synced = 1 WHERE id IN ($placeholders)',
+      ids.toList(),
+    );
   }
 }
 
@@ -389,11 +502,20 @@ class MeditationSyncService {
       'data': payloadData,
     };
 
+    for (final item in payloadData) {
+      print(
+        'PAYLOAD_DEBUG session=${item['session_id']} user=${item['username']} '
+        'answers=${item['answers_csv']}',
+      );
+    }
+
     final response = await http.post(
       Uri.parse(_endpoint),
       headers: const {'Content-Type': 'application/json'},
       body: jsonEncode(payload),
     );
+
+    print('SYNC_DEBUG status=${response.statusCode} body=${response.body}');
 
     final successStatus =
         response.statusCode >= 200 && response.statusCode < 400;
@@ -981,19 +1103,19 @@ class _QuestionnairePageState extends State<QuestionnairePage> {
 
     // Build answers array
     final answers = _answers.map((answer) => (answer.value ?? 0)).toList();
-    
+
     // Validation logging
     print('=== QUESTIONNAIRE SUBMISSION ===');
     print('Total questions: ${_answers.length}');
-    print('All answers captured: ${answers.length == 6 && answers.every((v) => v > 0)}');
+    print('All answers captured: ${answers.length == 6 && _allAnswersComplete()}');
     for (int i = 0; i < answers.length; i++) {
       print('q${i+1}: ${answers[i]} (changed: ${_answers[i].changed})');
     }
     print('=======================\n');
-    
+
     // Show confirmation dialog with all answers
     if (!mounted) return;
-    
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -1045,7 +1167,7 @@ class _QuestionnairePageState extends State<QuestionnairePage> {
       Navigator.of(context).pop();
       return;
     }
-    
+
     final session = MeditationSession(
       id: const Uuid().v4(),
       deviceId: widget.deviceId,
