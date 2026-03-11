@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../models/user_profile.dart';
 import '../pages/app_bootstrapper.dart';
+import '../pages/onboarding_page.dart';
 import '../pages/questionnaire_page.dart';
 import '../services/daily_progress_store.dart';
 import '../services/meditation_session_store.dart';
@@ -315,7 +316,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
-        builder: (_) => AppBootstrapper(deviceId: widget.deviceId),
+        builder: (_) => const OnboardingPage(),
       ),
       (_) => false,
     );
