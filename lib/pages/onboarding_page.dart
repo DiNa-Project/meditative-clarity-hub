@@ -75,9 +75,17 @@ class _OnboardingPageState extends State<OnboardingPage> {
     } catch (e) {
       print('ERROR: Onboarding save failed: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Save failed: $e')),
-        );
+        try {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Save failed: $e')),
+          );
+          setState(() {
+            _saving = false;
+          });
+        } catch (snackbarError) {
+          // Context became invalid during navigation, ignore
+          print('WARNING: Could not show error snackbar: $snackbarError');
+        }
       }
     }
   }
