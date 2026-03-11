@@ -109,6 +109,14 @@ class NotificationService {
     await prefs.setBool(_labScheduledForTenSessionsKey, true);
   }
 
+  static Future<void> resetForReRegistration() async {
+    await _cancelMeditationReminders();
+    await _plugin.cancel(2000);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_scheduledStartKey);
+    await prefs.remove(_labScheduledForTenSessionsKey);
+  }
+
   static DateTime _nextMeditationReminderTime(DateTime startDate) {
     final now = DateTime.now();
     final startLocal = DateTime(startDate.year, startDate.month, startDate.day);

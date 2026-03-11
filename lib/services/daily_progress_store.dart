@@ -21,6 +21,11 @@ class DailyProgressStore {
     await prefs.setString(_lastCompletedDateKey, dateTime.toIso8601String());
   }
 
+  static Future<void> clear() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_lastCompletedDateKey);
+  }
+
   static String formatDate(DateTime date) {
     final local = date.toLocal();
     return '${local.year.toString().padLeft(4, '0')}-'

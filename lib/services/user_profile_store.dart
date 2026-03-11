@@ -24,4 +24,10 @@ class UserProfileStore {
     await prefs.setString(_nameKey, profile.name);
     await prefs.setString(_startDateKey, profile.startDate);
   }
+
+  static Future<void> clear() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_nameKey);
+    await prefs.remove(_startDateKey);
+  }
 }

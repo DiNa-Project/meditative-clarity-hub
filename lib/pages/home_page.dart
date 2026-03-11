@@ -4,8 +4,12 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 import '../models/user_profile.dart';
+import '../pages/app_bootstrapper.dart';
 import '../pages/questionnaire_page.dart';
 import '../services/daily_progress_store.dart';
+import '../services/meditation_session_store.dart';
+import '../services/notification_service.dart';
+import '../services/user_profile_store.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({
@@ -274,9 +278,63 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  Future<void> _resetRegistration() async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Reset Registration?'),
+            content: const Text(
+              'This will clear local profile and session data on this device and return to onboarding.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Reset'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!confirmed) {
+      return;
+    }
+
+    await UserProfileStore.clear();
+    await DailyProgressStore.clear();
+    await MeditationSessionStore.clearAll();
+    await NotificationService.resetForReRegistration();
+
+    if (!mounted) {
+      return;
+    }
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => AppBootstrapper(deviceId: widget.deviceId),
+      ),
+      (_) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          IconButton(
+            tooltip: 'Reset registration',
+            onPressed: _resetRegistration,
+            icon: const Icon(Icons.restart_alt),
+          ),
+        ],
+      ),
       body: Stack(
         children: [
           Center(
