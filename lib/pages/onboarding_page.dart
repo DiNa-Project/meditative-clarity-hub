@@ -59,18 +59,33 @@ class _OnboardingPageState extends State<OnboardingPage> {
       _saving = true;
     });
 
-    final profile = UserProfile(
-      name: _nameController.text.trim(),
-      startDate: _startDate!.toIso8601String(),
-    );
+    try {
+      final profile = UserProfile(
+        name: _nameController.text.trim(),
+        startDate: _startDate!.toIso8601String(),
+      );
 
-    await UserProfileStore.save(profile);
+      await UserProfileStore.save(profile);
 
-    if (!mounted) {
-      return;
+      if (!mounted) {
+        return;
+      }
+
+      widget.onCompleted();
+    } catch (e) {
+      print('ERROR: Onboarding save failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Save failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+        });
+      }
     }
-
-    widget.onCompleted();
   }
 
   @override
