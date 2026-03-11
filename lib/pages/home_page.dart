@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../models/user_profile.dart';
 import '../pages/app_bootstrapper.dart';
-import '../pages/onboarding_page.dart';
 import '../pages/questionnaire_page.dart';
 import '../services/daily_progress_store.dart';
 import '../services/meditation_session_store.dart';
@@ -305,10 +304,29 @@ class _MyHomePageState extends State<MyHomePage> {
       return;
     }
 
-    await UserProfileStore.clear();
-    await DailyProgressStore.clear();
-    await MeditationSessionStore.clearAll();
-    await NotificationService.resetForReRegistration();
+    try {
+      await UserProfileStore.clear();
+    } catch (e) {
+      print('WARNING: Failed to clear profile during reset: $e');
+    }
+
+    try {
+      await DailyProgressStore.clear();
+    } catch (e) {
+      print('WARNING: Failed to clear daily progress during reset: $e');
+    }
+
+    try {
+      await MeditationSessionStore.clearAll();
+    } catch (e) {
+      print('WARNING: Failed to clear sessions during reset: $e');
+    }
+
+    try {
+      await NotificationService.resetForReRegistration();
+    } catch (e) {
+      print('WARNING: Failed to reset notifications during reset: $e');
+    }
 
     if (!mounted) {
       return;
@@ -316,17 +334,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
-        builder: (_) => OnboardingPage(
-          deviceId: widget.deviceId,
-          onCompleted: () {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(
-                builder: (_) => AppBootstrapper(deviceId: widget.deviceId),
-              ),
-              (_) => false,
-            );
-          },
-        ),
+        builder: (_) => AppBootstrapper(deviceId: widget.deviceId),
       ),
       (_) => false,
     );
