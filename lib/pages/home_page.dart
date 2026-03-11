@@ -243,7 +243,7 @@ class _MyHomePageState extends State<MyHomePage> {
     });
 
     try {
-      await _player.play(AssetSource('meditation.mp3'));
+      await _player.play(AssetSource('body_scan.mp3'));
     } catch (_) {
       if (!mounted) {
         return;

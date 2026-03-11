@@ -5,8 +5,8 @@ Meditation flow with onboarding, daily session, questionnaire, local storage, an
 ## Features
 
 - **Onboarding**: capture user name + study start date.
-- **Meditation**: main circular button plays `assets/meditation.mp3`.
-- **Practice mode**: bottom-left mini button plays `assets/meditation_try.mp3` and opens the questionnaire without storing/syncing data.
+- **Meditation**: main circular button plays `assets/body_scan.mp3`.
+- **Practice mode**: bottom-left mini button plays `assets/body_scan_try.mp3` and opens the questionnaire without storing/syncing data.
 - **Questionnaire**: 6 questions, two pages, info dialog for full wording.
 - **Local storage**: device UUID + user profile in `SharedPreferences`; session answers in local SQLite (`sqflite`) for robust queued sync.
 - **Sync**: unsent sessions are POSTed to a Google Apps Script endpoint and marked as synced after success.
