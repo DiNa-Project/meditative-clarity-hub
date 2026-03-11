@@ -262,7 +262,16 @@ class _MyHomePageState extends State<MyHomePage> {
       return;
     }
 
-    await _previewPlayer.play(AssetSource('meditation_try.mp3'));
+    try {
+      await _previewPlayer.play(AssetSource('body_scan_try.mp3'));
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to play practice audio.')),
+      );
+    }
   }
 
   @override
