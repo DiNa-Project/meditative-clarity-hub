@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026.03.11+9
+
+- **Fix:** Make reset registration continue to onboarding even if local cleanup or notification reset fails on Android.
+- **Fix:** Route reset registration back through `AppBootstrapper` so onboarding completion does not use a stale navigation context.
+- **Fix:** Avoid onboarding save UI getting stuck when registration navigation unmounts the page.
+- **Change:** Bump app version to `2026.03.11+9` for updated Android testing.
+
 ## 2026.03.11+8
 
 - **Change:** Update main meditation audio asset to `body_scan.mp3` and practice audio asset to `body_scan_try.mp3`.
