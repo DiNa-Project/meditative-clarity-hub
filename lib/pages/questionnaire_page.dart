@@ -215,18 +215,30 @@ class _QuestionnairePageState extends State<QuestionnairePage> {
 
       await MeditationSessionStore.add(session);
       await DailyProgressStore.setLastCompletedTimestamp(DateTime.now());
-      await NotificationService.ensureMeditationReminderUntilTenSessions(
-        DateTime.parse(widget.profile.startDate),
-      );
-      await NotificationService.ensureLabReminderAfterTenSessions();
 
       if (!mounted) {
         return;
       }
 
+      // Navigate immediately - don't wait for notifications
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const ThankYouPage()),
       );
+
+      // Schedule notifications in background (fire and forget) - failures don't block
+      try {
+        await NotificationService.ensureMeditationReminderUntilTenSessions(
+          DateTime.parse(widget.profile.startDate),
+        );
+      } catch (e) {
+        print('WARNING: Failed to schedule meditation reminder: $e');
+      }
+
+      try {
+        await NotificationService.ensureLabReminderAfterTenSessions();
+      } catch (e) {
+        print('WARNING: Failed to schedule lab reminder: $e');
+      }
 
       // Try to sync in background (fire and forget).
       unawaited(
@@ -240,11 +252,8 @@ class _QuestionnairePageState extends State<QuestionnairePage> {
       print('ERROR: Questionnaire submission failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Submit failed. Please try again.')),
+          SnackBar(content: Text('Submit failed: $e')),
         );
-      }
-    } finally {
-      if (mounted) {
         setState(() {
           _submitting = false;
         });
