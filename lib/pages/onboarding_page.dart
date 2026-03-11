@@ -79,12 +79,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
           SnackBar(content: Text('Save failed: $e')),
         );
       }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _saving = false;
-        });
-      }
     }
   }
 
