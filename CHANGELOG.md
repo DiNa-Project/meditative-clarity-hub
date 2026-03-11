@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026.03.11+8
+
+- **Change:** Update main meditation audio asset to `body_scan.mp3` and practice audio asset to `body_scan_try.mp3`.
+- **Fix:** Restore practice button functionality by correcting the practice audio asset path.
+- **Add:** Add in-app reset registration action on the home screen to clear local profile/session state and return to onboarding.
+- **Change:** Disable Android backup/restore to reduce unintended local data restoration after reinstall.
+- **Change:** Bump app version to `2026.03.11+8` for release.
+
 ## 2026.02.21+7
 
 - **Refactor:** Modularize app structure into `models/`, `services/`, and `pages/` with a thin `main.dart` entrypoint.
