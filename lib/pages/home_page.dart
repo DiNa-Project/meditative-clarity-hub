@@ -316,7 +316,17 @@ class _MyHomePageState extends State<MyHomePage> {
 
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
-        builder: (_) => const OnboardingPage(),
+        builder: (_) => OnboardingPage(
+          deviceId: widget.deviceId,
+          onCompleted: () {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(
+                builder: (_) => AppBootstrapper(deviceId: widget.deviceId),
+              ),
+              (_) => false,
+            );
+          },
+        ),
       ),
       (_) => false,
     );
